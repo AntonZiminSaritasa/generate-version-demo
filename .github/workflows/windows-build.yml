@@ -1,0 +1,49 @@
+name: windows-build
+
+on:
+  push:
+    branches:
+      - develop
+      - feature/*
+      - release/*
+    tags: [ '*' ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+    env:
+      # Parameters:
+      PREFIX: test
+      CSPROJ_PATH: src/TestProject/TestProject.csproj # Path to the project file
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Get version from Git and update .NET projects
+      id: gitversion
+      uses: Saritasa/github-actions/generate-version@0.1.0
+      with:
+        update-dotnet-project-files: true
+
+    - name: Build Project
+      run: dotnet build ${{ env.CSPROJ_PATH }} --configuration Release --runtime win-x64 -o build/
+
+      # Add build folder to ZIP archive
+    - name: Archive
+      uses: papeloto/action-zip@v1
+      with:
+        files: build/
+        dest: ${{ env.PREFIX }}-${{ steps.gitversion.outputs.semver }}.zip
+
+      # Add new release to https://github.com/AntonZiminSaritasa/generate-version-demo/releases
+      # Using GitVersion SemVer as tag
+    - name: Upload Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: '*.zip'
+        commit: ${{ github.sha }}
+        tag: ${{ steps.gitversion.outputs.semver }}
+        token: ${{ secrets.GITHUB_TOKEN }} # Secret is created automatically by GitHub
